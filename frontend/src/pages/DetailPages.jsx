@@ -96,8 +96,22 @@ const DetailPage = () => {
           💵 Bayar Ditempat
         </button>
 
-        <button className="w-full py-3 bg-yellow-400 text-gray-800 font-bold rounded-lg shadow active:scale-95 hover:bg-yellow-500 transition">
-          💳 Bayar Online
+        {/* TOMBOL BAYAR ONLINE (QRIS) - DIPERBARUI */}
+        <button 
+          onClick={() => {
+            if(!orderId) return alert("Order ID belum ada");
+            // Navigasi ke halaman QRIS bawa data Order & Total
+            navigate("/qris", { 
+                state: { 
+                    orderId: orderId, 
+                    totalAmount: totalAmount,
+                    note: note 
+                } 
+            });
+          }}
+          className="w-full py-3 bg-yellow-400 text-gray-800 font-bold rounded-lg shadow active:scale-95 hover:bg-yellow-500 transition"
+        >
+          💳 Bayar Online (QRIS)
         </button>
         
         <button 

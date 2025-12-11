@@ -3,7 +3,7 @@ import db from "../config/db.js";
 // --- 1. FUNGSI TAMBAH ORDER (Masuk Keranjang) ---
 export const addToOrder = async (req, res) => {
     // Debugging
-    console.log("📥 Request Masuk (Add):", req.body);
+    console.log(" Request Masuk (Add):", req.body);
     const { menu_id, quantity, order_id } = req.body;
 
     if (!menu_id || !quantity) {
@@ -71,7 +71,7 @@ export const addToOrder = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("🔥 ERROR DATABASE (Add) 🔥", error); 
+        console.error(" ERROR DATABASE (Add) 🔥", error); 
         res.status(500).json({ success: false, message: 'Database Error: ' + error.message });
     }
 };
@@ -96,7 +96,7 @@ export const checkoutOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order ID tidak ditemukan' });
         }
 
-        console.log(`✅ Order ${order_id} Sukses Checkout`);
+        console.log(` Order ${order_id} Sukses Checkout`);
 
         res.json({
             success: true,
@@ -105,7 +105,7 @@ export const checkoutOrder = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("🔥 Error Checkout:", error);
+        console.error(" Error Checkout:", error);
         res.status(500).json({ success: false, message: 'Gagal Checkout: ' + error.message });
     }
 };
