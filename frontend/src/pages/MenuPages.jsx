@@ -16,56 +16,111 @@ const MenuPages = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [menus, setMenu] = useState([]);
 
+  // --- TAMBAHAN BARU: State untuk menyimpan ID Pesanan dari database ---
+  const [orderId, setOrderId] = useState(null); 
+
   useEffect(() => {
     if (location.state?.cart) setCart(location.state.cart);
     if (location.state?.note) setNote(location.state.note);
+    // Jika kembali dari halaman detail, mungkin kita perlu bawa orderId juga (opsional nanti)
   }, [location.state]);
 
   const categories = ["All", "Durian", "Kopi", "Gula"];
 
+  // 1. FETCH DATA MENU (Sudah benar)
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/menu")
+        const res = await fetch("http://localhost:5000/api/menu");
         const data = await res.json();
-        setMenu(data.data)
+        
+        // Pengecekan agar tidak error jika format beda
+        const menuArray = data.data || data; 
+        setMenu(Array.isArray(menuArray) ? menuArray : []);
+        
         setLoading(false);
-      } catch(error) {
+      } catch (error) {
         console.error("Gagal fetching data, error: ", error);
         setLoading(false);
       }
-    }
+    };
 
     fetchMenu();
   }, []);
 
-  const handleAddToCart = (product) => {
+  // --- FUNGSI SINKRONISASI KE BACKEND ---
+  const syncToDatabase = async (menuId, newQuantity, currentOrderId) => {
+    try {
+        const res = await fetch("http://localhost:5000/api/order/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                menu_id: menuId,
+                quantity: newQuantity, 
+                order_id: currentOrderId // Kirim ID order yang sedang aktif
+            })
+        });
+        const data = await res.json();
+        if(data.success) {
+            console.log("Database Updated! Order ID:", data.order_id);
+            return data.order_id; // Kembalikan ID baru jika ada
+        }
+    } catch(err) {
+        console.error("Gagal simpan ke DB:", err);
+    }
+    return currentOrderId;
+  };
+
+  // 2. LOGIKA TAMBAH (Dimodifikasi: Update UI + Update DB)
+  const handleAddToCart = async (product) => {
+    let newQuantity = 1;
+
+    // A. Update Tampilan Dulu (Biar aplikasi terasa cepat/nggak lemot)
     const existing = cart.find((item) => item.id === product.id);
     if (existing) {
+      newQuantity = existing.quantity + 1;
       setCart(
         cart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: newQuantity } : item
         )
       );
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
+
+    // B. Kirim Data ke Backend (Di belakang layar)
+    const updatedOrderId = await syncToDatabase(product.id, newQuantity, orderId);
+    if (updatedOrderId) setOrderId(updatedOrderId);
   };
 
-  const handleSubtractFromCart = (id) => {
+  // 3. LOGIKA KURANG (Dimodifikasi: Update UI + Update DB)
+  const handleSubtractFromCart = async (id) => {
+    const existing = cart.find((item) => item.id === id);
+    if (!existing) return;
+
+    const newQuantity = existing.quantity - 1;
+
+    // A. Update UI
     setCart(
       cart
         .map((item) =>
-          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === id ? { ...item, quantity: newQuantity } : item
         )
         .filter((item) => item.quantity > 0)
     );
+
+    // B. Update DB
+    // Catatan: Jika quantity 0, idealnya kita panggil API delete. 
+    // Tapi untuk sekarang update ke 0 pun tidak masalah (tergantung backend).
+    if (newQuantity >= 0) {
+        await syncToDatabase(id, newQuantity, orderId);
+    }
   };
 
   const filteredMenus = menus.filter(
     (menu) =>
       (activeCategory === "All" || menu.category === activeCategory) &&
-      menu.name.toLowerCase().includes(searchTerm.toLowerCase())
+      (menu.name || menu.nama_menu || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -85,7 +140,8 @@ const MenuPages = () => {
 
         <button
           className="relative ml-2 p-3 bg-amber-500 text-white rounded-full shadow active:scale-95"
-          onClick={() => navigate("/detail", { state: { cart, note } })}
+          // Saat pindah ke detail, kita bawa orderId juga
+          onClick={() => navigate("/detail", { state: { cart, note, orderId } })}
         >
           🛒
           {totalItems > 0 && (
@@ -123,8 +179,9 @@ const MenuPages = () => {
               <CardMenu
                 key={item.id}
                 {...item}
-                addToCart={handleAddToCart}
-                subtractFromCart={handleSubtractFromCart}
+                // Pastikan CardMenu menggunakan props ini dengan benar
+                addToCart={() => handleAddToCart(item)}
+                subtractFromCart={() => handleSubtractFromCart(item.id)}
                 cart={cart}
               />
             ))}
@@ -157,7 +214,7 @@ const MenuPages = () => {
 
               <button
                 className="px-4 py-2 bg-yellow-500 rounded-lg text-white font-semibold active:scale-95"
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/")} 
               >
                 Lanjut
               </button>
